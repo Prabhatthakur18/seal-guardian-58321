@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { User as SupabaseUser, Session } from "@supabase/supabase-js";
+import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 
 export type UserRole = "customer" | "vendor";
 
@@ -25,8 +25,8 @@ interface RegisterData {
   name: string;
   email: string;
   phoneNumber: string;
-  password: string;
   role: UserRole;
+  password: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,31 +37,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener first
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
         if (session?.user) {
-          await fetchUserProfile(session.user);
+          setTimeout(() => {
+            fetchUserData(session.user);
+          }, 0);
         } else {
           setUser(null);
         }
       }
     );
 
-    // Then check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        await fetchUserProfile(session.user);
+        fetchUserData(session.user).finally(() => setLoading(false));
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserProfile = async (authUser: SupabaseUser) => {
+  const fetchUserData = async (authUser: SupabaseUser) => {
     try {
       const { data: profile } = await supabase
         .from("profiles")
@@ -75,6 +78,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq("user_id", authUser.id)
         .single();
 
+      const { data: verification } = await supabase
+        .from("vendor_verification")
+        .select("is_verified")
+        .eq("user_id", authUser.id)
+        .maybeSingle();
+
       if (profile && userRole) {
         setUser({
           id: authUser.id,
@@ -82,10 +91,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: profile.name,
           role: userRole.role as UserRole,
           phoneNumber: profile.phone_number,
+          isValidated: verification?.is_verified || userRole.role === "customer",
         });
       }
     } catch (error) {
-      console.error("Error fetching user profile:", error);
+      console.error("Error fetching user data:", error);
     }
   };
 
@@ -105,10 +115,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (error) throw error;
 
-    // If vendor, trigger verification email
+    // If vendor, trigger verification email (will be functional when email service is configured)
     if (data.role === "vendor") {
-      // This will be handled by the backend trigger
-      console.log("Vendor verification email will be sent");
+      try {
+        await supabase.functions.invoke("send-vendor-verification", {
+          body: { email: data.email, name: data.name },
+        });
+      } catch (err) {
+        console.log("Vendor verification email pending email service configuration");
+      }
     }
   };
 
