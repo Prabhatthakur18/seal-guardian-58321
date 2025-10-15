@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { User as SupabaseUser, Session } from "@supabase/supabase-js";
 
 export type UserRole = "customer" | "vendor";
 
@@ -14,9 +16,8 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, otp: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  sendOTP: (email: string) => Promise<{ exists: boolean }>;
   register: (data: RegisterData) => Promise<void>;
 }
 
@@ -24,6 +25,7 @@ interface RegisterData {
   name: string;
   email: string;
   phoneNumber: string;
+  password: string;
   role: UserRole;
 }
 
@@ -31,80 +33,102 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    // Set up auth state listener first
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        if (session?.user) {
+          await fetchUserProfile(session.user);
+        } else {
+          setUser(null);
+        }
+      }
+    );
+
+    // Then check for existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        await fetchUserProfile(session.user);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const sendOTP = async (email: string): Promise<{ exists: boolean }> => {
-    // TODO: Implement with backend API
-    // Check if user exists in database
-    // If exists, send OTP to email
-    // Return whether user exists
-    
-    // Mock implementation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Simulate checking database
-    const exists = Math.random() > 0.5; // Replace with actual API call
-    
-    if (exists) {
-      console.log(`OTP sent to ${email}`);
-    }
-    
-    return { exists };
-  };
+  const fetchUserProfile = async (authUser: SupabaseUser) => {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", authUser.id)
+        .single();
 
-  const login = async (email: string, otp: string): Promise<void> => {
-    // TODO: Implement with backend API
-    // Verify OTP
-    // Get user data from database
-    
-    // Mock implementation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const mockUser: User = {
-      id: "123",
-      email,
-      name: "Test User",
-      role: "customer",
-      phoneNumber: "+91 98765 43210",
-    };
-    
-    setUser(mockUser);
-    localStorage.setItem("user", JSON.stringify(mockUser));
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", authUser.id)
+        .single();
+
+      if (profile && userRole) {
+        setUser({
+          id: authUser.id,
+          email: profile.email,
+          name: profile.name,
+          role: userRole.role as UserRole,
+          phoneNumber: profile.phone_number,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    }
   };
 
   const register = async (data: RegisterData): Promise<void> => {
-    // TODO: Implement with backend API
-    // Create user in database
-    // Send OTP to email
-    // If vendor, send validation email to representative
-    
-    // Mock implementation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    const { error } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+        data: {
+          name: data.name,
+          phone_number: data.phoneNumber,
+          role: data.role,
+        },
+      },
+    });
+
+    if (error) throw error;
+
+    // If vendor, trigger verification email
     if (data.role === "vendor") {
-      console.log("Vendor registration requires validation from representative");
-      // Send email to representative for validation
+      // This will be handled by the backend trigger
+      console.log("Vendor verification email will be sent");
     }
-    
-    console.log("Registration successful, OTP sent to email");
+  };
+
+  const login = async (email: string, password: string): Promise<void> => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
   };
 
   const logout = async (): Promise<void> => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem("user");
+    setSession(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, sendOTP, register }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register }}>
       {children}
     </AuthContext.Provider>
   );

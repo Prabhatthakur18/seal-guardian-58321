@@ -12,62 +12,28 @@ const Login = () => {
   const [searchParams] = useSearchParams();
   const role = (searchParams.get("role") as UserRole) || "customer";
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   
   const navigate = useNavigate();
-  const { sendOTP, login } = useAuth();
+  const { login } = useAuth();
   const { toast } = useToast();
-
-  const handleSendOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const { exists } = await sendOTP(email);
-      
-      if (!exists) {
-        toast({
-          title: "Account Not Found",
-          description: "Please register first before attempting to login.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      setOtpSent(true);
-      toast({
-        title: "OTP Sent",
-        description: "Please check your email for the OTP code.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to send OTP. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await login(email, otp);
+      await login(email, password);
       toast({
         title: "Success",
         description: "Login successful!",
       });
       navigate("/warranty");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Invalid OTP. Please try again.",
+        description: error.message || "Failed to login. Please check your credentials.",
         variant: "destructive",
       });
     } finally {
@@ -97,73 +63,55 @@ const Login = () => {
               {role === "customer" ? "Customer" : "Vendor"} Login
             </h1>
             <p className="text-muted-foreground">
-              Enter your email to receive an OTP
+              Enter your credentials to access your account
             </p>
           </div>
 
           {/* Form Content */}
-          {!otpSent ? (
-            <form onSubmit={handleSendOTP} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your.email@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="pl-11 h-12"
-                  />
-                </div>
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="pl-11 h-12"
+                />
               </div>
+            </div>
 
-              <Button type="submit" className="w-full h-12" disabled={loading}>
-                {loading ? "Sending..." : "Send OTP"}
-              </Button>
-
-              <p className="text-center text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <Link to={`/register?role=${role}`} className="text-primary font-medium hover:underline">
-                  Register here
-                </Link>
-              </p>
-            </form>
-          ) : (
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="otp">Enter OTP</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    id="otp"
-                    type="text"
-                    placeholder="Enter 6-digit OTP"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    required
-                    maxLength={6}
-                    className="pl-11 h-12"
-                  />
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="pl-11 h-12"
+                />
               </div>
+            </div>
 
-              <Button type="submit" className="w-full h-12" disabled={loading}>
-                {loading ? "Verifying..." : "Verify & Login"}
-              </Button>
+            <Button type="submit" className="w-full h-12" disabled={loading}>
+              {loading ? "Logging in..." : "Login"}
+            </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-12"
-                onClick={() => setOtpSent(false)}
-              >
-                Change Email
-              </Button>
-            </form>
-          )}
+            <p className="text-center text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <Link to={`/register?role=${role}`} className="text-primary font-medium hover:underline">
+                Register here
+              </Link>
+            </p>
+          </form>
         </div>
       </div>
 

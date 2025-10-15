@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { z } from "zod";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { User, Mail, Phone, ShieldCheck, AlertCircle } from "lucide-react";
+import { User, Mail, Phone, ShieldCheck, AlertCircle, Lock } from "lucide-react";
 import authHero from "@/assets/auth-hero.jpg";
 
 const Register = () => {
@@ -15,6 +16,7 @@ const Register = () => {
     name: "",
     email: "",
     phoneNumber: "",
+    password: "",
   });
   const [loading, setLoading] = useState(false);
   
@@ -142,6 +144,26 @@ const Register = () => {
                   value={formData.email}
                   onChange={handleChange}
                   required
+                  className="pl-11 h-12"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">
+                Password <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="Create a strong password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  minLength={6}
                   className="pl-11 h-12"
                 />
               </div>
