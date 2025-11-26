@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import db from '../config/database';
 import { EmailService } from '../services/email.service';
 import { OTPService } from '../services/otp.service';
-import { RegisterData, LoginData } from '../types/index';
+import { RegisterData } from '../types/index';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -13,11 +13,21 @@ dotenv.config();
 export class AuthController {
   static async register(req: Request, res: Response) {
     try {
-      const { name, email, phoneNumber, role, password }: RegisterData = req.body;
+      const {
+        name, email, phoneNumber, role,
+        storeName, address, state, city, pincode, manpower
+      }: RegisterData = req.body;
 
       // Validate input
-      if (!name || !email || !phoneNumber || !role || !password) {
+      if (!name || !email || !phoneNumber || !role) {
         return res.status(400).json({ error: 'All fields are required' });
+      }
+
+      // Validate vendor specific fields
+      if (role === 'vendor') {
+        if (!storeName || !address || !state || !city || !pincode) {
+          return res.status(400).json({ error: 'All vendor details are required' });
+        }
       }
 
       // Check if user already exists
@@ -30,14 +40,12 @@ export class AuthController {
         return res.status(400).json({ error: 'Email already registered' });
       }
 
-      // Hash password
-      const passwordHash = await bcrypt.hash(password, 10);
       const userId = uuidv4();
 
-      // Insert user profile
+      // Insert user profile (no password)
       await db.execute(
-        'INSERT INTO profiles (id, name, email, phone_number, password_hash) VALUES (?, ?, ?, ?, ?)',
-        [userId, name, email, phoneNumber, passwordHash]
+        'INSERT INTO profiles (id, name, email, phone_number) VALUES (?, ?, ?, ?)',
+        [userId, name, email, phoneNumber]
       );
 
       // Insert user role
@@ -46,13 +54,35 @@ export class AuthController {
         [uuidv4(), userId, role]
       );
 
-      // If vendor, create verification record and send email
+      // If vendor, create verification record and details
       if (role === 'vendor') {
         const verificationToken = uuidv4();
+
         await db.execute(
-          'INSERT INTO vendor_verification (id, user_id, verification_token) VALUES (?, ?, ?)',
-          [uuidv4(), userId, verificationToken]
+          "INSERT INTO vendor_verification (id, user_id, is_verified) VALUES (?, ?, ?)",
+          [uuidv4(), userId, false]
         );
+
+        // Insert vendor details
+        const vendorDetailsId = uuidv4();
+        await db.execute(
+          `INSERT INTO vendor_details 
+           (id, user_id, store_name, address, state, city, pincode) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [vendorDetailsId, userId, storeName, address, state, city, pincode]
+        );
+
+        // Insert manpower details
+        if (manpower && manpower.length > 0) {
+          for (const m of manpower) {
+            await db.execute(
+              `INSERT INTO manpower 
+               (id, vendor_id, name, phone_number, manpower_id, applicator_type) 
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              [uuidv4(), vendorDetailsId, m.name, m.phoneNumber, m.manpowerId, m.applicatorType]
+            );
+          }
+        }
 
         // Send verification email to admin
         await EmailService.sendVendorVerificationRequest(
@@ -64,12 +94,15 @@ export class AuthController {
         );
       }
 
+      // Generate OTP
+      const otp = await OTPService.createOTP(userId);
+      await EmailService.sendOTP(email, name, otp);
+
       res.status(201).json({
         success: true,
-        message: role === 'vendor' 
-          ? 'Vendor registration submitted. Awaiting verification.' 
-          : 'Registration successful. Please login.',
-        userId
+        message: 'Registration successful. OTP sent to your email.',
+        userId,
+        requiresOTP: true
       });
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -79,10 +112,10 @@ export class AuthController {
 
   static async login(req: Request, res: Response) {
     try {
-      const { email, password }: LoginData = req.body;
+      const { email } = req.body;
 
-      if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
       }
 
       // Get user profile
@@ -92,16 +125,10 @@ export class AuthController {
       );
 
       if (users.length === 0) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+        return res.status(401).json({ error: 'User not found. Please register first.' });
       }
 
       const user = users[0];
-
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password_hash);
-      if (!isValidPassword) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
 
       // Get user role
       const [roles]: any = await db.execute(
@@ -123,8 +150,8 @@ export class AuthController {
         );
 
         if (verification.length === 0 || !verification[0].is_verified) {
-          return res.status(403).json({ 
-            error: 'Vendor account pending verification. Please wait for admin approval.' 
+          return res.status(403).json({
+            error: 'Vendor account pending verification. Please wait for admin approval.'
           });
         }
       }
@@ -190,9 +217,19 @@ export class AuthController {
           [userId]
         );
         isValidated = verification[0]?.is_verified || false;
+
+        // If vendor not validated, don't provide token
+        if (!isValidated) {
+          return res.json({
+            success: true,
+            message: 'OTP verified. Waiting for vendor approval.',
+            token: null,
+            user: null
+          });
+        }
       }
 
-      // Generate JWT
+      // Generate JWT (only for customers or verified vendors)
       const token = jwt.sign(
         {
           id: user.id,

@@ -39,6 +39,34 @@ const InstallerDetails = ({ formData, updateFormData, onNext }: InstallerDetails
         </div>
 
         <div className="space-y-2">
+          <Label htmlFor="installerName">
+            Installer Name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="installerName"
+            type="text"
+            placeholder="Enter installer name"
+            value={formData.installerName}
+            onChange={(e) => updateFormData({ installerName: e.target.value })}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="installerCode">
+            Installer Code <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="installerCode"
+            type="text"
+            placeholder="Enter installer code"
+            value={formData.installerCode}
+            onChange={(e) => updateFormData({ installerCode: e.target.value })}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="dealerEmail">
             Email ID <span className="text-destructive">*</span>
           </Label>

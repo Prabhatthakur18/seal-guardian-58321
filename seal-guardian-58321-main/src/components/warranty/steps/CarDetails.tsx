@@ -38,15 +38,45 @@ const CarDetails = ({ formData, updateFormData, onNext, onPrev }: CarDetailsProp
         </div>
 
         <div className="space-y-2">
+          <Label htmlFor="carMake">
+            Car Make <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="carMake"
+            type="text"
+            placeholder="e.g., Honda"
+            value={formData.carMake}
+            onChange={(e) => updateFormData({ carMake: e.target.value })}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="carModel">
-            Car Model <span className="text-destructive">*</span>
+            Car Model - Variant  <span className="text-destructive">*</span>
           </Label>
           <Input
             id="carModel"
             type="text"
-            placeholder="e.g., Honda City 2024"
+            placeholder="e.g., City"
             value={formData.carModel}
             onChange={(e) => updateFormData({ carModel: e.target.value })}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="carYear">
+            Year <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="carYear"
+            type="number"
+            placeholder="e.g., 2024"
+            min="1900"
+            max={new Date().getFullYear() + 1}
+            value={formData.carYear}
+            onChange={(e) => updateFormData({ carYear: e.target.value })}
             required
           />
         </div>

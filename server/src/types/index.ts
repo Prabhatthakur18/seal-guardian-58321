@@ -2,17 +2,31 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'customer' | 'vendor';
+  role: 'customer' | 'vendor' | 'admin';
   phoneNumber: string;
   isValidated?: boolean;
+}
+
+export interface ManpowerData {
+  name: string;
+  phoneNumber: string;
+  manpowerId: string;
+  applicatorType: string;
 }
 
 export interface RegisterData {
   name: string;
   email: string;
   phoneNumber: string;
-  role: 'customer' | 'vendor';
-  password: string;
+  role: 'customer' | 'vendor' | 'admin';
+  password?: string;
+  // Vendor specific fields
+  storeName?: string;
+  address?: string;
+  state?: string;
+  city?: string;
+  pincode?: string;
+  manpower?: ManpowerData[];
 }
 
 export interface LoginData {

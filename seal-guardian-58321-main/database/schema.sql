@@ -1,5 +1,3 @@
-mkdir -p database
-cat > database/schema.sql << 'EOF'
 -- Create profiles table
 CREATE TABLE IF NOT EXISTS profiles (
   id VARCHAR(36) PRIMARY KEY,
@@ -16,10 +14,36 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE TABLE IF NOT EXISTS user_roles (
   id VARCHAR(36) PRIMARY KEY,
   user_id VARCHAR(36) NOT NULL,
-  role ENUM('customer', 'vendor') NOT NULL,
+  role ENUM('customer', 'vendor', 'admin') NOT NULL,
   UNIQUE KEY unique_user_role (user_id, role),
   FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE,
   INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Create vendor_details table
+CREATE TABLE IF NOT EXISTS vendor_details (
+  id VARCHAR(36) PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL,
+  store_name VARCHAR(255) NOT NULL,
+  address TEXT NOT NULL,
+  state VARCHAR(100) NOT NULL,
+  city VARCHAR(100) NOT NULL,
+  pincode VARCHAR(20) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_vendor_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Create manpower table
+CREATE TABLE IF NOT EXISTS manpower (
+  id VARCHAR(36) PRIMARY KEY,
+  vendor_id VARCHAR(36) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  phone_number VARCHAR(20) NOT NULL,
+  manpower_id VARCHAR(50) NOT NULL,
+  applicator_type ENUM('seat_cover', 'ppf_spf', 'ev') NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (vendor_id) REFERENCES vendor_details(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create vendor_verification table
@@ -70,4 +94,3 @@ CREATE TABLE IF NOT EXISTS warranty_registrations (
   INDEX idx_user_id (user_id),
   INDEX idx_product_type (product_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-EOF

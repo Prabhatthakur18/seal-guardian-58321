@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Progress } from "@/components/ui/progress";
@@ -20,6 +20,8 @@ export interface EVFormData {
   dealerState: string;
   dealerCity: string;
   dealerPostalCode: string;
+  installerName: string;
+  installerCode: string;
   
   // Customer Details
   customerFname: string;
@@ -36,6 +38,8 @@ export interface EVFormData {
   installationDate: string;
   carModel: string;
   carReg: string;
+  carMake: string;
+  carYear: string;
   
   // Product Info
   product: string;
@@ -69,6 +73,8 @@ const EVProductsForm = () => {
     customerLname: "",
     customerMobile: "",
     customerEmail: "",
+    installerName: "",
+    installerCode: "",
     custAddr1: "",
     custAddr2: "",
     custState: "",
@@ -80,6 +86,8 @@ const EVProductsForm = () => {
     product: "",
     lotNumber: "",
     rollNumber: "",
+    carMake: "",
+    carYear: "",
     installArea: "",
     lhsPhoto: null,
     rhsPhoto: null,
@@ -187,6 +195,8 @@ const EVProductsForm = () => {
         custAddr2: "",
         custState: "",
         custCity: "",
+        installerName: "",
+        installerCode: "",
         custPostalCode: "",
         installationDate: "",
         carModel: "",
@@ -195,6 +205,8 @@ const EVProductsForm = () => {
         lotNumber: "",
         rollNumber: "",
         installArea: "",
+        carMake: "",
+        carYear: "",
         lhsPhoto: null,
         rhsPhoto: null,
         frontRegPhoto: null,
@@ -222,6 +234,12 @@ const EVProductsForm = () => {
 
   return (
     <Card>
+      <CardHeader>
+        <CardTitle className="text-3xl font-bold">EV Products Warranty Registration</CardTitle>
+        <CardDescription className="text-base">
+          Please fill in all required fields to register your EV Products warranty
+        </CardDescription>
+      </CardHeader>
       <CardContent className="pt-6">
         {/* Progress Steps */}
         <div className="mb-8">
