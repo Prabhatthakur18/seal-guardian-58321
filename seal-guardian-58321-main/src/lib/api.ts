@@ -29,12 +29,17 @@ api.interceptors.response.use(
   },
   (error) => {
     console.error('API Error:', error.response?.status, error.config?.url, error.response?.data); // Debug log
-    if (error.response?.status === 401 || error.response?.status === 403) {
+
+    const isAuthRequest = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/verify-otp');
+
+    if ((error.response?.status === 401 || error.response?.status === 403) && !isAuthRequest) {
       localStorage.removeItem('auth_token');
       // Preserve the role parameter if it exists in the current URL
       const currentUrl = new URL(window.location.href);
       const role = currentUrl.searchParams.get('role');
       const loginUrl = role ? `/login?role=${role}` : '/login';
+
+      // Only redirect if valid existing token to prevent loops (though removing token above helps)
       window.location.href = loginUrl;
     }
     return Promise.reject(error);

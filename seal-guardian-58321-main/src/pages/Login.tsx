@@ -5,14 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, ShieldCheck, KeyRound, Store, Shield } from "lucide-react";
+import { Mail, ShieldCheck, KeyRound, Store, Shield, AlertCircle } from "lucide-react";
 import authHero from "@/assets/auth-hero.jpg";
+import { validateEmail, getEmailError } from "@/lib/validation";
 
 const Login = () => {
   const [searchParams] = useSearchParams();
   const role = (searchParams.get("role") as UserRole) || "customer";
 
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [otp, setOtp] = useState("");
   const [userId, setUserId] = useState<string>("");
   const [showOTP, setShowOTP] = useState(false);
@@ -35,9 +37,28 @@ const Login = () => {
     }
   }, [resendTimer]);
 
+  // Handle email change with validation
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEmail(value);
+    setEmailError(getEmailError(value));
+  };
+
   // Step 1: Email login (no password)
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate email format
+    const error = getEmailError(email);
+    if (error) {
+      setEmailError(error);
+      toast({
+        title: "Validation Error",
+        description: error,
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Validate admin email
     if (role === "admin" && email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
@@ -63,9 +84,29 @@ const Login = () => {
         });
       }
     } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || "Invalid credentials";
+
+      // Check if user is not registered - redirect to register page
+      // Matches backend error: "User not found. Please register first."
+      if (errorMessage.toLowerCase().includes("not found") ||
+        errorMessage.toLowerCase().includes("register first") ||
+        errorMessage.toLowerCase().includes("not registered")) {
+
+        toast({
+          title: "Account Not Found",
+          description: "You don't have an account yet. Redirecting to registration...",
+          variant: "destructive",
+          duration: 3000,
+        });
+
+        // Redirect immediately to register page
+        navigate(`/register?role=${role}`, { replace: true });
+        return;
+      }
+
       toast({
         title: "Login Failed",
-        description: error.response?.data?.error || error.message || "Invalid credentials",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -231,11 +272,17 @@ const Login = () => {
                     type="email"
                     placeholder={config.emailPlaceholder}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={handleEmailChange}
                     required
-                    className="pl-11 h-12"
+                    disabled={loading}
+                    className={`pl-11 h-12 ${emailError ? 'border-red-500 focus:ring-red-500' : ''}`}
                   />
                 </div>
+                {emailError && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" /> {emailError}
+                  </p>
+                )}
                 {role === "admin" && (
                   <p className="text-xs text-muted-foreground">
                     Only authorized admin emails can access this portal
@@ -270,6 +317,7 @@ const Login = () => {
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     required
                     maxLength={6}
+                    disabled={loading}
                     className="pl-11 h-12 text-center text-2xl tracking-widest"
                   />
                 </div>

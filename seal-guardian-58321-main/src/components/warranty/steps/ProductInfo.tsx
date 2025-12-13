@@ -79,6 +79,7 @@ const ProductInfo = ({ formData, updateFormData, onPrev, onSubmit, loading }: Pr
             placeholder="Select Product"
             searchPlaceholder="Search product..."
             emptyMessage="No product found."
+            disabled={loading}
           />
         </div>
 
@@ -109,6 +110,7 @@ const ProductInfo = ({ formData, updateFormData, onPrev, onSubmit, loading }: Pr
             value={formData.lotNumber}
             onChange={(e) => updateFormData({ lotNumber: e.target.value })}
             required
+            disabled={loading}
           />
         </div>
 
@@ -123,6 +125,7 @@ const ProductInfo = ({ formData, updateFormData, onPrev, onSubmit, loading }: Pr
             value={formData.rollNumber}
             onChange={(e) => updateFormData({ rollNumber: e.target.value })}
             required
+            disabled={loading}
           />
         </div>
 
@@ -137,6 +140,7 @@ const ProductInfo = ({ formData, updateFormData, onPrev, onSubmit, loading }: Pr
             value={formData.installArea}
             onChange={(e) => updateFormData({ installArea: e.target.value })}
             required
+            disabled={loading}
           />
         </div>
       </div>
@@ -155,6 +159,7 @@ const ProductInfo = ({ formData, updateFormData, onPrev, onSubmit, loading }: Pr
               accept="image/*"
               onChange={(e) => handleFileChange("lhsPhoto", e.target.files?.[0] || null)}
               required
+              disabled={loading}
             />
           </div>
 
@@ -168,6 +173,7 @@ const ProductInfo = ({ formData, updateFormData, onPrev, onSubmit, loading }: Pr
               accept="image/*"
               onChange={(e) => handleFileChange("rhsPhoto", e.target.files?.[0] || null)}
               required
+              disabled={loading}
             />
           </div>
 
@@ -181,6 +187,7 @@ const ProductInfo = ({ formData, updateFormData, onPrev, onSubmit, loading }: Pr
               accept="image/*"
               onChange={(e) => handleFileChange("frontRegPhoto", e.target.files?.[0] || null)}
               required
+              disabled={loading}
             />
           </div>
 
@@ -194,6 +201,7 @@ const ProductInfo = ({ formData, updateFormData, onPrev, onSubmit, loading }: Pr
               accept="image/*"
               onChange={(e) => handleFileChange("backRegPhoto", e.target.files?.[0] || null)}
               required
+              disabled={loading}
             />
           </div>
 
@@ -207,6 +215,7 @@ const ProductInfo = ({ formData, updateFormData, onPrev, onSubmit, loading }: Pr
               accept="image/*"
               onChange={(e) => handleFileChange("warrantyPhoto", e.target.files?.[0] || null)}
               required
+              disabled={loading}
             />
           </div>
         </div>
@@ -222,6 +231,7 @@ const ProductInfo = ({ formData, updateFormData, onPrev, onSubmit, loading }: Pr
           checked={formData.termsAccepted}
           onCheckedChange={(checked) => updateFormData({ termsAccepted: checked as boolean })}
           required
+          disabled={loading}
         />
         <Label htmlFor="terms" className="text-sm leading-relaxed cursor-pointer">
           I agree to the Terms and Conditions and confirm that all information provided is accurate{" "}

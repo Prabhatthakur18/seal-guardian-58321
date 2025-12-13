@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
+import {
+  validateIndianMobile,
+  validateEmail,
+  getPhoneError,
+  getEmailError
+} from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -172,11 +178,34 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
     setLoading(true);
 
     try {
-      // Validate UID length
       if (formData.uid.length < 13 || formData.uid.length > 16) {
         toast({
           title: "Invalid UID",
           description: "UID must be between 13-16 digits",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Validate Customer Mobile
+      const phoneError = getPhoneError(formData.customerMobile);
+      if (phoneError) {
+        toast({
+          title: "Invalid Mobile Number",
+          description: phoneError,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Validate Customer Email (if provided or required)
+      // Note: Email is required for non-vendors, or if provided
+      if (formData.customerEmail && !validateEmail(formData.customerEmail)) {
+        toast({
+          title: "Invalid Email",
+          description: "Please enter a valid email address",
           variant: "destructive",
         });
         setLoading(false);
@@ -315,6 +344,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                   placeholder="Select Store"
                   searchPlaceholder="Search store name..."
                   emptyMessage="No store found."
+                  disabled={loading}
                 />
               )}
             </div>
@@ -331,6 +361,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 onChange={(e) => handleChange("storeEmail", e.target.value)}
                 required
                 readOnly
+                disabled={loading}
                 className="bg-muted"
               />
             </div>
@@ -343,7 +374,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
               <Select
                 value={formData.manpowerId}
                 onValueChange={(value) => handleChange("manpowerId", value)}
-                disabled={!formData.storeName || manpowerList.length === 0}
+                disabled={(!formData.storeName || manpowerList.length === 0) || loading}
               >
                 <SelectTrigger id="manpowerId">
                   <SelectValue placeholder={!formData.storeName ? "Select Store First" : manpowerList.length === 0 ? "No Manpower Found" : "Select Installer"} />
@@ -368,6 +399,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 value={formData.purchaseDate}
                 onChange={(e) => handleChange("purchaseDate", e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
 
@@ -383,6 +415,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 onChange={(e) => handleChange("uid", e.target.value)}
                 required
                 maxLength={16}
+                disabled={loading}
                 pattern="[0-9]{13,16}"
               />
               <p className="text-xs text-muted-foreground">
@@ -402,6 +435,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 onChange={(e) => handleChange("customerName", e.target.value)}
                 required
                 readOnly={user?.role === 'customer'}
+                disabled={loading}
                 className={user?.role === 'customer' ? 'bg-muted cursor-not-allowed' : ''}
               />
               {user?.role === 'customer' && (
@@ -421,6 +455,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 onChange={(e) => handleChange("customerEmail", e.target.value)}
                 required={user?.role !== 'vendor'}
                 readOnly={user?.role === 'customer'}
+                disabled={loading}
                 className={user?.role === 'customer' ? 'bg-muted cursor-not-allowed' : ''}
               />
               {user?.role === 'customer' && (
@@ -443,6 +478,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 onChange={(e) => handleChange("customerMobile", e.target.value)}
                 required
                 readOnly={user?.role === 'customer'}
+                disabled={loading}
                 className={user?.role === 'customer' ? 'bg-muted cursor-not-allowed' : ''}
               />
               {user?.role === 'customer' && (
@@ -460,6 +496,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 placeholder="Enter address"
                 value={formData.customerAddress}
                 onChange={(e) => handleChange("customerAddress", e.target.value)}
+                disabled={loading}
               />
             </div>
 
@@ -473,6 +510,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 placeholder="e.g., Toyota, Honda"
                 value={formData.carMake}
                 onChange={(e) => handleChange("carMake", e.target.value)}
+                disabled={loading}
               />
             </div>
 
@@ -486,6 +524,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 placeholder="e.g., Camry, Civic"
                 value={formData.carModel}
                 onChange={(e) => handleChange("carModel", e.target.value)}
+                disabled={loading}
               />
             </div>
 
@@ -500,6 +539,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 value={formData.carYear}
                 onChange={(e) => handleChange("carYear", e.target.value)}
                 maxLength={4}
+                disabled={loading}
               />
             </div>
 
@@ -514,6 +554,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 placeholder="Select Product Name"
                 searchPlaceholder="Search product..."
                 emptyMessage="No product found."
+                disabled={loading}
               />
             </div>
 
@@ -541,9 +582,10 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
                 <Input
                   id="invoiceFile"
                   type="file"
-                  accept="image/*,.pdf"
+                  accept="image/*"
                   onChange={handleFileChange}
                   required
+                  disabled={loading}
                   className="cursor-pointer"
                 />
                 <Upload className="h-5 w-5 text-muted-foreground" />

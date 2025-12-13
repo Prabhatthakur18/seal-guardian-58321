@@ -793,7 +793,7 @@ const VendorDashboard = () => {
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-3 mb-6">
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-4 mb-6">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Total Warranties</CardTitle>
@@ -807,8 +807,19 @@ const VendorDashboard = () => {
 
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Pending Validation</CardTitle>
-                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{approvedWarranties.length}</div>
+                            <p className="text-xs text-muted-foreground">Verified warranties</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                            <Clock className="h-4 w-4 text-yellow-600" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">{pendingWarranties.length}</div>
@@ -818,12 +829,12 @@ const VendorDashboard = () => {
 
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Approved</CardTitle>
-                            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                            <CardTitle className="text-sm font-medium">Disapproved</CardTitle>
+                            <XCircle className="h-4 w-4 text-red-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{approvedWarranties.length}</div>
-                            <p className="text-xs text-muted-foreground">Verified warranties</p>
+                            <div className="text-2xl font-bold">{rejectedWarranties.length}</div>
+                            <p className="text-xs text-muted-foreground">Rejected warranties</p>
                         </CardContent>
                     </Card>
                 </div>

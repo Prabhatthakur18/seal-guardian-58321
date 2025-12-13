@@ -8,6 +8,15 @@ import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { User, Mail, Phone, ShieldCheck, AlertCircle, KeyRound, Store, MapPin, Plus, Trash2, Users } from "lucide-react";
 import authHero from "@/assets/auth-hero.jpg";
+import {
+  validateIndianMobile,
+  validateEmail,
+  validatePincode,
+  cleanPhoneNumber,
+  getPhoneError,
+  getEmailError,
+  getPincodeError
+} from "@/lib/validation";
 
 interface Manpower {
   id: string;
@@ -15,6 +24,18 @@ interface Manpower {
   phoneNumber: string;
   manpowerId: string;
   applicatorType: string;
+}
+
+interface FormErrors {
+  name?: string;
+  email?: string;
+  phoneNumber?: string;
+  storeName?: string;
+  storeEmail?: string;
+  address?: string;
+  state?: string;
+  city?: string;
+  pincode?: string;
 }
 
 const Register = () => {
@@ -26,6 +47,7 @@ const Register = () => {
   const [userId, setUserId] = useState<string>("");
   const [showOTP, setShowOTP] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
 
   // Customer Form Data
   const [customerData, setCustomerData] = useState({
@@ -46,6 +68,44 @@ const Register = () => {
     pincode: "",
   });
 
+  // Handle Customer Input Change with validation
+  const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    // Clean phone number input
+    if (name === 'phoneNumber') {
+      const cleaned = cleanPhoneNumber(value);
+      setCustomerData(prev => ({ ...prev, [name]: cleaned }));
+      setErrors(prev => ({ ...prev, phoneNumber: getPhoneError(cleaned) }));
+    } else if (name === 'email') {
+      setCustomerData(prev => ({ ...prev, [name]: value }));
+      setErrors(prev => ({ ...prev, email: getEmailError(value) }));
+    } else {
+      setCustomerData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // Handle Vendor Input Change with validation
+  const handleVendorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    if (name === 'phoneNumber') {
+      const cleaned = cleanPhoneNumber(value);
+      setVendorData(prev => ({ ...prev, [name]: cleaned }));
+      setErrors(prev => ({ ...prev, phoneNumber: getPhoneError(cleaned) }));
+    } else if (name === 'storeEmail') {
+      setVendorData(prev => ({ ...prev, [name]: value }));
+      setErrors(prev => ({ ...prev, storeEmail: getEmailError(value) }));
+    } else if (name === 'pincode') {
+      const cleaned = value.replace(/\D/g, '').slice(0, 6);
+      setVendorData(prev => ({ ...prev, [name]: cleaned }));
+      setErrors(prev => ({ ...prev, pincode: getPincodeError(cleaned) }));
+    } else {
+      setVendorData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+
   // Manpower Data
   const [manpowerList, setManpowerList] = useState<Manpower[]>([
     { id: "1", name: "", phoneNumber: "", manpowerId: "", applicatorType: "" },
@@ -57,21 +117,18 @@ const Register = () => {
   const { register, verifyOTP } = useAuth();
   const { toast } = useToast();
 
-  // Handle Customer Input Change
-  const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCustomerData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  // Handle Vendor Input Change
-  const handleVendorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setVendorData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  // Handle Manpower Change
+  // Handle Manpower Change with phone validation
   const handleManpowerChange = (id: string, field: keyof Manpower, value: string) => {
     setManpowerList(prev => prev.map(item => {
       if (item.id === id) {
-        const updatedItem = { ...item, [field]: value };
+        let processedValue = value;
+
+        // Clean phone number for manpower
+        if (field === 'phoneNumber') {
+          processedValue = cleanPhoneNumber(value);
+        }
+
+        const updatedItem = { ...item, [field]: processedValue };
 
         // Auto-generate Manpower ID if name or phone changes
         if (field === "name" || field === "phoneNumber") {
@@ -104,6 +161,49 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate before submission
+    if (role === "customer") {
+      const emailError = getEmailError(customerData.email);
+      const phoneError = getPhoneError(customerData.phoneNumber);
+
+      if (emailError || phoneError) {
+        setErrors({ email: emailError, phoneNumber: phoneError });
+        toast({
+          title: "Validation Error",
+          description: emailError || phoneError,
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      // Vendor validation
+      const emailError = getEmailError(vendorData.storeEmail);
+      const phoneError = getPhoneError(vendorData.phoneNumber);
+      const pincodeError = getPincodeError(vendorData.pincode);
+
+      if (emailError || phoneError || pincodeError) {
+        setErrors({ storeEmail: emailError, phoneNumber: phoneError, pincode: pincodeError });
+        toast({
+          title: "Validation Error",
+          description: emailError || phoneError || pincodeError,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate manpower phone numbers
+      const invalidManpower = manpowerList.filter(m => m.phoneNumber && !validateIndianMobile(m.phoneNumber));
+      if (invalidManpower.length > 0) {
+        toast({
+          title: "Validation Error",
+          description: "Please enter valid 10-digit Indian mobile numbers for all manpower entries",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -216,6 +316,7 @@ const Register = () => {
                         value={customerData.name}
                         onChange={handleCustomerChange}
                         required
+                        disabled={loading}
                         className="pl-11 h-12"
                       />
                     </div>
@@ -232,25 +333,38 @@ const Register = () => {
                         value={customerData.email}
                         onChange={handleCustomerChange}
                         required
-                        className="pl-11 h-12"
+                        disabled={loading}
+                        className={`pl-11 h-12 ${errors.email ? 'border-red-500 focus:ring-red-500' : ''}`}
                       />
                     </div>
+                    {errors.email && (
+                      <p className="text-sm text-red-500 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {errors.email}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phoneNumber">Phone Number *</Label>
+                    <Label htmlFor="phoneNumber">Phone Number * <span className="text-xs text-muted-foreground">(10-digit Indian mobile)</span></Label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <Input
                         id="phoneNumber"
                         name="phoneNumber"
                         type="tel"
-                        placeholder="+91 XXXXX XXXXX"
+                        placeholder="9876543210"
                         value={customerData.phoneNumber}
                         onChange={handleCustomerChange}
                         required
-                        className="pl-11 h-12"
+                        maxLength={10}
+                        disabled={loading}
+                        className={`pl-11 h-12 ${errors.phoneNumber ? 'border-red-500 focus:ring-red-500' : ''}`}
                       />
                     </div>
+                    {errors.phoneNumber && (
+                      <p className="text-sm text-red-500 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {errors.phoneNumber}
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -273,6 +387,7 @@ const Register = () => {
                           value={vendorData.contactName}
                           onChange={handleVendorChange}
                           required
+                          disabled={loading}
                           className="h-11"
                         />
                       </div>
@@ -285,6 +400,7 @@ const Register = () => {
                           value={vendorData.storeName}
                           onChange={handleVendorChange}
                           required
+                          disabled={loading}
                           className="h-11"
                         />
                       </div>
@@ -298,21 +414,34 @@ const Register = () => {
                           value={vendorData.storeEmail}
                           onChange={handleVendorChange}
                           required
-                          className="h-11"
+                          disabled={loading}
+                          className={`h-11 ${errors.storeEmail ? 'border-red-500 focus:ring-red-500' : ''}`}
                         />
+                        {errors.storeEmail && (
+                          <p className="text-sm text-red-500 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" /> {errors.storeEmail}
+                          </p>
+                        )}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="phoneNumber">Phone Number *</Label>
+                        <Label htmlFor="phoneNumber">Phone Number * <span className="text-xs text-muted-foreground">(10-digit)</span></Label>
                         <Input
                           id="phoneNumber"
                           name="phoneNumber"
                           type="tel"
-                          placeholder="+91 XXXXX XXXXX"
+                          placeholder="9876543210"
                           value={vendorData.phoneNumber}
                           onChange={handleVendorChange}
                           required
-                          className="h-11"
+                          maxLength={10}
+                          disabled={loading}
+                          className={`h-11 ${errors.phoneNumber ? 'border-red-500 focus:ring-red-500' : ''}`}
                         />
+                        {errors.phoneNumber && (
+                          <p className="text-sm text-red-500 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" /> {errors.phoneNumber}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -325,6 +454,7 @@ const Register = () => {
                         value={vendorData.address}
                         onChange={handleVendorChange}
                         required
+                        disabled={loading}
                         className="h-11"
                       />
                     </div>
@@ -339,6 +469,7 @@ const Register = () => {
                           value={vendorData.state}
                           onChange={handleVendorChange}
                           required
+                          disabled={loading}
                           className="h-11"
                         />
                       </div>
@@ -351,11 +482,12 @@ const Register = () => {
                           value={vendorData.city}
                           onChange={handleVendorChange}
                           required
+                          disabled={loading}
                           className="h-11"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="pincode">Pincode *</Label>
+                        <Label htmlFor="pincode">Pincode * <span className="text-xs text-muted-foreground">(6-digit)</span></Label>
                         <Input
                           id="pincode"
                           name="pincode"
@@ -363,8 +495,15 @@ const Register = () => {
                           value={vendorData.pincode}
                           onChange={handleVendorChange}
                           required
-                          className="h-11"
+                          maxLength={6}
+                          disabled={loading}
+                          className={`h-11 ${errors.pincode ? 'border-red-500 focus:ring-red-500' : ''}`}
                         />
+                        {errors.pincode && (
+                          <p className="text-sm text-red-500 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" /> {errors.pincode}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -392,6 +531,7 @@ const Register = () => {
                               value={manpower.name}
                               onChange={(e) => handleManpowerChange(manpower.id, "name", e.target.value)}
                               className="h-10"
+                              disabled={loading}
                             />
                           </div>
                           <div className="md:col-span-3 space-y-2">
@@ -401,6 +541,7 @@ const Register = () => {
                               value={manpower.phoneNumber}
                               onChange={(e) => handleManpowerChange(manpower.id, "phoneNumber", e.target.value)}
                               className="h-10"
+                              disabled={loading}
                             />
                           </div>
                           <div className="md:col-span-2 space-y-2">
@@ -417,6 +558,7 @@ const Register = () => {
                             <Select
                               value={manpower.applicatorType}
                               onValueChange={(value) => handleManpowerChange(manpower.id, "applicatorType", value)}
+                              disabled={loading}
                             >
                               <SelectTrigger className="h-10">
                                 <SelectValue placeholder="Select Type" />
@@ -485,6 +627,7 @@ const Register = () => {
                     }
                     required
                     maxLength={6}
+                    disabled={loading}
                     className="pl-11 h-12 text-center text-2xl tracking-widest"
                   />
                 </div>

@@ -10,6 +10,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Validation regex patterns
+const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const PINCODE_REGEX = /^\d{6}$/;
+
 export class AuthController {
   static async register(req: Request, res: Response) {
     try {
@@ -23,14 +28,33 @@ export class AuthController {
         return res.status(400).json({ error: 'All fields are required' });
       }
 
+      // Validate email format
+      if (!EMAIL_REGEX.test(email)) {
+        return res.status(400).json({ error: 'Please enter a valid email address' });
+      }
+
+      // Validate Indian mobile number (clean it first)
+      const cleanedPhone = phoneNumber.replace(/[\s\-+]/g, '').replace(/^91/, '').replace(/^0/, '');
+      if (!INDIAN_MOBILE_REGEX.test(cleanedPhone)) {
+        return res.status(400).json({ error: 'Please enter a valid 10-digit Indian mobile number (must start with 6-9)' });
+      }
+
       // Validate vendor specific fields
       if (role === 'vendor') {
         if (!storeName || !address || !state || !city || !pincode) {
           return res.status(400).json({ error: 'All vendor details are required' });
         }
+
+        // Validate pincode
+        if (!PINCODE_REGEX.test(pincode)) {
+          return res.status(400).json({ error: 'Pincode must be 6 digits' });
+        }
       }
 
-      // Check if user already exists
+      // Clean up expired pending registrations first
+      await db.execute('DELETE FROM pending_registrations WHERE expires_at < NOW()');
+
+      // Check if user already exists in ACTUAL profiles table (verified users only)
       const [existingUsers]: any = await db.execute(
         'SELECT id FROM profiles WHERE email = ?',
         [email]
@@ -40,71 +64,45 @@ export class AuthController {
         return res.status(400).json({ error: 'Email already registered' });
       }
 
-      const userId = uuidv4();
+      // Delete any existing pending registration with this email (allows re-registration)
+      await db.execute('DELETE FROM pending_registrations WHERE email = ?', [email]);
 
-      // Insert user profile (no password)
+      const pendingId = uuidv4();
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes expiry
+
+      // Store manpower as JSON if vendor
+      const manpowerJson = role === 'vendor' && manpower ? JSON.stringify(manpower) : null;
+
+      // Insert into pending_registrations table
       await db.execute(
-        'INSERT INTO profiles (id, name, email, phone_number) VALUES (?, ?, ?, ?)',
-        [userId, name, email, phoneNumber]
-      );
-
-      // Insert user role
-      await db.execute(
-        'INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, ?)',
-        [uuidv4(), userId, role]
-      );
-
-      // If vendor, create verification record and details
-      if (role === 'vendor') {
-        const verificationToken = uuidv4();
-
-        await db.execute(
-          "INSERT INTO vendor_verification (id, user_id, is_verified) VALUES (?, ?, ?)",
-          [uuidv4(), userId, false]
-        );
-
-        // Insert vendor details
-        const vendorDetailsId = uuidv4();
-        await db.execute(
-          `INSERT INTO vendor_details 
-           (id, user_id, store_name, store_email, address, state, city, pincode) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [vendorDetailsId, userId, storeName, email, address, state, city, pincode]
-        );
-
-        // Insert manpower details
-        if (manpower && manpower.length > 0) {
-          for (const m of manpower) {
-            await db.execute(
-              `INSERT INTO manpower 
-               (id, vendor_id, name, phone_number, manpower_id, applicator_type) 
-               VALUES (?, ?, ?, ?, ?, ?)`,
-              [uuidv4(), vendorDetailsId, m.name, m.phoneNumber, m.manpowerId, m.applicatorType]
-            );
-          }
-        }
-
-        // Send verification email to admin
-        await EmailService.sendVendorVerificationRequest(
-          email,
+        `INSERT INTO pending_registrations 
+         (id, name, email, phone_number, role, store_name, store_email, address, state, city, pincode, manpower_data, expires_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          pendingId,
           name,
+          email,
           phoneNumber,
-          userId,
-          verificationToken
-        );
+          role,
+          role === 'vendor' ? storeName : null,
+          role === 'vendor' ? email : null,
+          role === 'vendor' ? address : null,
+          role === 'vendor' ? state : null,
+          role === 'vendor' ? city : null,
+          role === 'vendor' ? pincode : null,
+          manpowerJson,
+          expiresAt
+        ]
+      );
 
-        // Send confirmation email to vendor
-        await EmailService.sendVendorRegistrationConfirmation(email, name);
-      }
-
-      // Generate OTP
-      const otp = await OTPService.createOTP(userId);
+      // Generate OTP (using pending registration ID)
+      const otp = await OTPService.createOTP(pendingId);
       await EmailService.sendOTP(email, name, otp);
 
       res.status(201).json({
         success: true,
-        message: 'Registration successful. OTP sent to your email.',
-        userId,
+        message: 'OTP sent to your email. Please verify to complete registration.',
+        userId: pendingId,
         requiresOTP: true
       });
     } catch (error: any) {
@@ -112,6 +110,7 @@ export class AuthController {
       res.status(500).json({ error: 'Registration failed' });
     }
   }
+
 
   static async login(req: Request, res: Response) {
     try {
@@ -203,14 +202,126 @@ export class AuthController {
         return res.status(401).json({ error: 'Invalid or expired OTP' });
       }
 
-      // Get user data
+      // FIRST: Check if this is a pending registration (new user flow)
+      const [pendingUsers]: any = await db.execute(
+        'SELECT * FROM pending_registrations WHERE id = ? AND expires_at > NOW()',
+        [userId]
+      );
+
+      if (pendingUsers.length > 0) {
+        // This is a NEW REGISTRATION - move data from pending to actual tables
+        const pending = pendingUsers[0];
+        const newUserId = uuidv4(); // Generate new permanent user ID
+
+        // Insert into profiles table
+        await db.execute(
+          'INSERT INTO profiles (id, name, email, phone_number) VALUES (?, ?, ?, ?)',
+          [newUserId, pending.name, pending.email, pending.phone_number]
+        );
+
+        // Insert user role
+        await db.execute(
+          'INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, ?)',
+          [uuidv4(), newUserId, pending.role]
+        );
+
+        // If vendor, create verification record and details
+        if (pending.role === 'vendor') {
+          const verificationToken = uuidv4();
+
+          await db.execute(
+            "INSERT INTO vendor_verification (id, user_id, is_verified) VALUES (?, ?, ?)",
+            [uuidv4(), newUserId, false]
+          );
+
+          // Insert vendor details
+          const vendorDetailsId = uuidv4();
+          await db.execute(
+            `INSERT INTO vendor_details 
+             (id, user_id, store_name, store_email, address, state, city, pincode) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [vendorDetailsId, newUserId, pending.store_name, pending.store_email, pending.address, pending.state, pending.city, pending.pincode]
+          );
+
+          // Insert manpower details if any
+          if (pending.manpower_data) {
+            const manpowerList = typeof pending.manpower_data === 'string'
+              ? JSON.parse(pending.manpower_data)
+              : pending.manpower_data;
+
+            if (manpowerList && manpowerList.length > 0) {
+              for (const m of manpowerList) {
+                await db.execute(
+                  `INSERT INTO manpower 
+                   (id, vendor_id, name, phone_number, manpower_id, applicator_type) 
+                   VALUES (?, ?, ?, ?, ?, ?)`,
+                  [uuidv4(), vendorDetailsId, m.name, m.phoneNumber, m.manpowerId, m.applicatorType]
+                );
+              }
+            }
+          }
+
+          // Send verification email to admin
+          await EmailService.sendVendorVerificationRequest(
+            pending.email,
+            pending.name,
+            pending.phone_number,
+            newUserId,
+            verificationToken
+          );
+
+          // Send confirmation email to vendor
+          await EmailService.sendVendorRegistrationConfirmation(pending.email, pending.name);
+
+          // Delete from pending registrations
+          await db.execute('DELETE FROM pending_registrations WHERE id = ?', [userId]);
+
+          // Vendor needs admin approval, don't provide token yet
+          return res.json({
+            success: true,
+            message: 'Registration complete! Your vendor account is pending admin approval.',
+            token: null,
+            user: null
+          });
+        }
+
+        // For customers - delete from pending and provide token
+        await db.execute('DELETE FROM pending_registrations WHERE id = ?', [userId]);
+
+        // Generate JWT for customer
+        const token = jwt.sign(
+          {
+            id: newUserId,
+            email: pending.email,
+            role: pending.role
+          },
+          process.env.JWT_SECRET as string,
+          { expiresIn: process.env.JWT_EXPIRES_IN || '24h' } as jwt.SignOptions
+        );
+
+        return res.json({
+          success: true,
+          message: 'Registration successful!',
+          token,
+          user: {
+            id: newUserId,
+            email: pending.email,
+            name: pending.name,
+            role: pending.role,
+            phoneNumber: pending.phone_number,
+            isValidated: true
+          }
+        });
+      }
+
+      // SECOND: This is a LOGIN flow - user already exists in profiles
       const [users]: any = await db.execute(
         'SELECT id, email, name, phone_number FROM profiles WHERE id = ?',
         [userId]
       );
 
       if (users.length === 0) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: 'User not found or registration expired. Please register again.' });
       }
 
       const user = users[0];
@@ -280,17 +391,32 @@ export class AuthController {
         return res.status(400).json({ error: 'User ID is required' });
       }
 
-      // Get user data
-      const [users]: any = await db.execute(
-        'SELECT id, email, name FROM profiles WHERE id = ?',
+      let userEmail: string;
+      let userName: string;
+
+      // FIRST: Check if this is a pending registration
+      const [pendingUsers]: any = await db.execute(
+        'SELECT email, name FROM pending_registrations WHERE id = ? AND expires_at > NOW()',
         [userId]
       );
 
-      if (users.length === 0) {
-        return res.status(404).json({ error: 'User not found' });
-      }
+      if (pendingUsers.length > 0) {
+        userEmail = pendingUsers[0].email;
+        userName = pendingUsers[0].name;
+      } else {
+        // SECOND: Check profiles table (login flow)
+        const [users]: any = await db.execute(
+          'SELECT id, email, name FROM profiles WHERE id = ?',
+          [userId]
+        );
 
-      const user = users[0];
+        if (users.length === 0) {
+          return res.status(404).json({ error: 'User not found or registration expired. Please register again.' });
+        }
+
+        userEmail = users[0].email;
+        userName = users[0].name;
+      }
 
       // Invalidate all existing unused OTPs for this user
       await db.execute(
@@ -302,7 +428,7 @@ export class AuthController {
       const otp = await OTPService.createOTP(userId);
 
       // Send OTP email
-      await EmailService.sendOTP(user.email, user.name, otp);
+      await EmailService.sendOTP(userEmail, userName, otp);
 
       res.json({
         success: true,

@@ -9,7 +9,7 @@ const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
         folder: 'warranty-portal',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'pdf'],
+        allowed_formats: ['jpg', 'jpeg', 'png'],
     },
 });
 const upload = multer({ storage: storage });

@@ -6,6 +6,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { EVFormData } from "../EVProductsForm";
 import { getAllStates, getCitiesByState, fetchPincodeDetails } from "@/lib/indianAddressData";
 import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  validateIndianMobile,
+  validateEmail,
+  validatePincode,
+  getPhoneError,
+  getEmailError,
+  getPincodeError
+} from "@/lib/validation";
 
 interface CustomerDetailsProps {
   formData: EVFormData;
@@ -17,6 +26,7 @@ interface CustomerDetailsProps {
 }
 
 const CustomerDetails = ({ formData, updateFormData, onNext, onPrev, isCustomer = false, isVendor = false }: CustomerDetailsProps) => {
+  const { toast } = useToast();
   const [loadingPincode, setLoadingPincode] = useState(false);
   const [states, setStates] = useState<any[]>([]);
   const [availableCities, setAvailableCities] = useState<any[]>([]);
@@ -75,6 +85,39 @@ const CustomerDetails = ({ formData, updateFormData, onNext, onPrev, isCustomer 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate Mobile Number
+    const phoneError = getPhoneError(formData.customerMobile);
+    if (phoneError) {
+      toast({
+        title: "Invalid Mobile Number",
+        description: phoneError,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate Email
+    if ((!isVendor || formData.customerEmail) && !validateEmail(formData.customerEmail)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate Pincode
+    const pincodeError = getPincodeError(formData.custPostalCode);
+    if (pincodeError) {
+      toast({
+        title: "Invalid Postal Code",
+        description: pincodeError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     onNext();
   };
 
