@@ -31,11 +31,8 @@ export interface EVFormData {
   customerLname: string;
   customerMobile: string;
   customerEmail: string;
-  custAddr1: string;
-  custAddr2: string;
-  custState: string;
-  custCity: string;
-  custPostalCode: string;
+
+
 
   // Car Details
   installationDate: string;
@@ -86,11 +83,8 @@ const EVProductsForm = ({ initialData, warrantyId, onSuccess }: EVProductsFormPr
     customerEmail: "",
     installerName: "",
     installerCode: "",
-    custAddr1: "",
-    custAddr2: "",
-    custState: "",
-    custCity: "",
-    custPostalCode: "",
+
+
     installationDate: "",
     carModel: "",
     carReg: "",
@@ -133,11 +127,8 @@ const EVProductsForm = ({ initialData, warrantyId, onSuccess }: EVProductsFormPr
         customerLname: customerNameParts.slice(1).join(' ') || "",
         customerEmail: initialData.customer_email || "",
         customerMobile: initialData.customer_phone || "",
-        custAddr1: custAddressParts[0]?.trim() || "",
-        custAddr2: custAddressParts[1]?.trim() || "",
-        custCity: custAddressParts[2]?.trim() || "",
-        custState: custAddressParts[3]?.split('-')[0]?.trim() || "",
-        custPostalCode: custAddressParts[3]?.split('-')[1]?.trim() || "",
+
+
 
         installerName: initialData.installer_name || "",
         installerCode: "", // Not stored in DB?
@@ -250,7 +241,7 @@ const EVProductsForm = ({ initialData, warrantyId, onSuccess }: EVProductsFormPr
         customerName: `${formData.customerFname} ${formData.customerLname}`,
         customerEmail: formData.customerEmail,
         customerPhone: formData.customerMobile,
-        customerAddress: `${formData.custAddr1}, ${formData.custAddr2 ? formData.custAddr2 + ', ' : ''}${formData.custCity}, ${formData.custState} - ${formData.custPostalCode}`,
+        customerAddress: "N/A",
         carMake: carMake,
         carModel: carModelName,
         carYear: new Date().getFullYear().toString(),
@@ -266,7 +257,7 @@ const EVProductsForm = ({ initialData, warrantyId, onSuccess }: EVProductsFormPr
           installArea: formData.installArea,
           manpowerId: formData.manpowerId,
           manpowerName: formData.installerName,
-          customerAddress: `${formData.custAddr1}, ${formData.custAddr2 ? formData.custAddr2 + ', ' : ''}${formData.custCity}, ${formData.custState} - ${formData.custPostalCode}`, // Added to ensure it's saved in JSON
+          customerAddress: "N/A", // Added to ensure it's saved in JSON
           carRegistration: formData.carReg,
           dealerAddress: `${formData.dealerAddr1}, ${formData.dealerAddr2 ? formData.dealerAddr2 + ', ' : ''}${formData.dealerCity}, ${formData.dealerState} - ${formData.dealerPostalCode}`,
           photos: {
@@ -316,14 +307,10 @@ const EVProductsForm = ({ initialData, warrantyId, onSuccess }: EVProductsFormPr
             customerLname: "",
             customerMobile: "",
             customerEmail: "",
-            custAddr1: "",
-            custAddr2: "",
-            custState: "",
-            custCity: "",
+
             installerName: "",
             installerCode: "",
             manpowerId: "",
-            custPostalCode: "",
             installationDate: "",
             carModel: "",
             carReg: "",

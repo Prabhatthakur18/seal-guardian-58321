@@ -37,7 +37,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
     customerName: initialData.customer_name || "",
     customerEmail: initialData.customer_email || "",
     customerMobile: initialData.customer_phone || "",
-    customerAddress: initialData.customer_address || "",
+
     productName: initialData.product_details?.productName || "",
     storeEmail: initialData.installer_contact || "",
     purchaseDate: initialData.purchase_date ? new Date(initialData.purchase_date).toISOString().split('T')[0] : "",
@@ -53,7 +53,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
     customerName: "",
     customerEmail: "",
     customerMobile: "",
-    customerAddress: "",
+
     productName: "",
     storeEmail: "",
     purchaseDate: "",
@@ -224,7 +224,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
         customerName: formData.customerName,
         customerEmail: formData.customerEmail,
         customerPhone: formData.customerMobile,
-        customerAddress: formData.customerAddress || "N/A",
+        customerAddress: "N/A",
         carMake: formData.carMake || "N/A",
         carModel: formData.carModel || "N/A",
         carYear: formData.carYear || new Date().getFullYear().toString(),
@@ -240,7 +240,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
           storeEmail: formData.storeEmail,
           manpowerId: formData.manpowerId,
           manpowerName: manpowerName,
-          customerAddress: formData.customerAddress, // Added to ensure it's saved in JSON
+          customerAddress: "N/A",
           invoiceFileName: formData.invoiceFile?.name || null,
           invoiceFile: formData.invoiceFile, // Pass file object for API wrapper
         },
@@ -270,7 +270,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
         customerName: "",
         customerEmail: "",
         customerMobile: "",
-        customerAddress: "",
+
         productName: "",
         storeEmail: "",
         purchaseDate: "",
@@ -497,19 +497,7 @@ const SeatCoverForm = ({ initialData, warrantyId, onSuccess }: SeatCoverFormProp
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="customerAddress">
-                Customer Address
-              </Label>
-              <Input
-                id="customerAddress"
-                type="text"
-                placeholder="Enter address"
-                value={formData.customerAddress}
-                onChange={(e) => handleChange("customerAddress", e.target.value)}
-                disabled={loading}
-              />
-            </div>
+
 
             <div className="space-y-2">
               <Label htmlFor="carMake">

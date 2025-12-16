@@ -417,10 +417,7 @@ const AdminWarrantyList = ({
                                                             <p className="text-sm text-muted-foreground">Phone</p>
                                                             <p className="font-medium">{warranty.customer_phone}</p>
                                                         </div>
-                                                        <div className="col-span-2">
-                                                            <p className="text-sm text-muted-foreground">Address</p>
-                                                            <p className="font-medium">{warranty.customer_address}</p>
-                                                        </div>
+
                                                     </div>
                                                 </div>
                                                 <div>
@@ -861,7 +858,7 @@ const AdminDashboard = () => {
             'Customer Name': c.customer_name,
             'Email': c.customer_email,
             'Phone': c.customer_phone,
-            'Address': c.customer_address || 'N/A',
+
             'Approved Warranties': c.validated_warranties || 0,
             'Disapproved Warranties': c.rejected_warranties || 0,
             'Pending Warranties': c.pending_warranties || 0,
